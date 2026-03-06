@@ -5,9 +5,12 @@ Open source AI coding agent with server mode. No fancy TUI — just a clean serv
 ## Features
 
 - **Server-first architecture** — `gocode serve` exposes HTTP + WebSocket API
-- **Thin CLI client** — `gocode chat` connects to the server and streams responses
+- **Interactive REPL** — `gocode chat` for multi-turn conversations with context memory
+- **One-shot mode** — `gocode chat "your prompt"` for quick tasks
 - **OpenAI-compatible** — works with any OpenAI-compatible API (DeepSeek, Qwen, Groq, Together, Ollama, OpenAI)
-- **Built-in tools** — read/write files, list directories, execute shell commands
+- **8 built-in tools** — file ops, code search, web search, shell execution
+- **AGENTS.md support** — project-specific instructions loaded automatically
+- **21 AGENTS.md templates** — coding, IoT, ERP, backoffice, devops and more
 - **Agent loop** — LLM autonomously calls tools until the task is done
 - **Session management** — maintain conversation context across messages
 
@@ -28,15 +31,45 @@ cp .env.example .env
 docker compose up -d
 ```
 
-> You can also use `config.yaml` for advanced settings (see `config.example.yaml`).
+### 3. Chat (Interactive REPL)
 
-### 3. Chat
+```bash
+docker compose exec gocode gocode chat \
+  --server 127.0.0.1:3000 \
+  --config /workspace/config.yaml
+```
+
+```
+  gocode interactive
+  Type your message and press Enter. Commands:
+  /quit     Exit
+  /clear    Start a new session
+  /session  Show current session ID
+
+> list files in current directory
+⚡ list_files({"path": "."})
+   → main.go, go.mod, internal/...
+
+> search for "TODO" in the project
+⚡ grep({"pattern": "TODO", "path": "."})
+   → main.go:42: // TODO: add timeout
+
+> fix that TODO
+⚡ read_file({"path": "main.go"})
+⚡ edit_file({"path": "main.go", ...})
+   → Successfully edited main.go
+
+> /quit
+Bye!
+```
+
+### One-shot mode
 
 ```bash
 docker compose exec gocode gocode chat \
   --server 127.0.0.1:3000 \
   --config /workspace/config.yaml \
-  "list files in current directory"
+  "explain what main.go does"
 ```
 
 ### Build from source (requires Go 1.22+)
@@ -45,14 +78,58 @@ docker compose exec gocode gocode chat \
 go build -o gocode .
 ./gocode serve
 # In another terminal:
-./gocode chat "hello"
+./gocode chat
 ```
+
+## Tools
+
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read file contents |
+| `write_file` | Create or overwrite files |
+| `edit_file` | Partial edit via find & replace (saves tokens) |
+| `list_files` | List directory contents |
+| `grep` | Search text in files recursively |
+| `web_search` | Search the web via DuckDuckGo (no API key needed) |
+| `web_fetch` | Fetch content from a URL |
+| `shell` | Execute shell commands |
+
+## AGENTS.md
+
+Place an `AGENTS.md` file in your project root to give gocode project-specific instructions. It will be loaded automatically into the system prompt.
+
+```markdown
+# AGENTS.md
+- Always respond in Thai
+- Use Go conventions
+- Write tests for every new function
+- Never commit .env files
+```
+
+See [examples/agents-md/](examples/agents-md/) for 21 ready-to-use templates:
+
+**Coding:** Go, Next.js, Python FastAPI, Rust, Flutter
+**IoT:** Arduino/ESP32, IoT Platform, Smart Farm, ESPHome
+**ERP:** Odoo
+**Tech:** DevOps, SysAdmin, Data Analysis, Technical Writing, Research
+**Business:** HR, CRM, Sales, Marketing, Accounting
+**General:** Minimal template
 
 ## Configuration
 
+### Option 1: Environment variables (.env)
+
+```bash
+GOCODE_API_KEY=sk-xxx
+GOCODE_BASE_URL=https://api.deepseek.com/v1
+GOCODE_MODEL=deepseek-chat
+```
+
+### Option 2: Config file (config.yaml)
+
 ```yaml
 provider:
-  base_url: "https://api.deepseek.com/v1"  # Any OpenAI-compatible endpoint
+  base_url: "https://api.deepseek.com/v1"
   api_key: "sk-xxx"
   model: "deepseek-chat"
 
@@ -65,18 +142,18 @@ agent:
   max_iterations: 20
 ```
 
-Environment variables override config: `GOCODE_API_KEY`, `GOCODE_BASE_URL`, `GOCODE_MODEL`
+Environment variables always override config file values.
 
 ## Supported Providers
 
-| Provider | Base URL |
-|----------|----------|
-| DeepSeek | `https://api.deepseek.com/v1` |
-| OpenAI | `https://api.openai.com/v1` |
-| Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
-| Groq | `https://api.groq.com/openai/v1` |
-| Together | `https://api.together.xyz/v1` |
-| Ollama | `http://localhost:11434/v1` |
+| Provider | Base URL | Model example |
+|----------|----------|---------------|
+| DeepSeek | `https://api.deepseek.com/v1` | `deepseek-chat` |
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o` |
+| Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| Together | `https://api.together.xyz/v1` | `meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo` |
+| Ollama | `http://localhost:11434/v1` | `llama3.2` |
 
 ## Architecture
 
@@ -86,33 +163,40 @@ gocode serve (HTTP + WebSocket server)
     ├── /api/sessions       REST API
     └── /health             Health check
          ↕ WebSocket
-gocode chat "prompt"  (thin CLI client)
+gocode chat              (interactive REPL or one-shot)
 ```
 
 ## Project Structure
 
 ```
 gocode/
-├── main.go                    # CLI entrypoint (cobra)
+├── main.go                        # CLI entrypoint (cobra)
 ├── internal/
-│   ├── config/config.go       # YAML config + env overrides
+│   ├── config/config.go           # YAML config + env overrides
 │   ├── provider/
-│   │   ├── provider.go        # LLM interface
-│   │   └── openai.go          # OpenAI-compatible implementation
+│   │   ├── provider.go            # LLM interface
+│   │   └── openai.go              # OpenAI-compatible implementation
 │   ├── tools/
-│   │   ├── registry.go        # Tool registration
-│   │   ├── read_file.go       # Read file contents
-│   │   ├── write_file.go      # Write/create files
-│   │   ├── list_files.go      # List directory
-│   │   └── shell.go           # Execute shell commands
+│   │   ├── registry.go            # Tool registration
+│   │   ├── read_file.go           # Read file contents
+│   │   ├── write_file.go          # Write/create files
+│   │   ├── edit_file.go           # Partial file editing
+│   │   ├── list_files.go          # List directory
+│   │   ├── grep.go                # Search text in files
+│   │   ├── web_search.go          # Web search (DuckDuckGo)
+│   │   ├── web_fetch.go           # Fetch URL content
+│   │   └── shell.go               # Execute shell commands
 │   ├── agent/
-│   │   ├── agent.go           # Agent loop (LLM ↔ tools)
-│   │   └── session.go         # Session management
+│   │   ├── agent.go               # Agent loop + AGENTS.md loader
+│   │   └── session.go             # Session management
 │   └── server/
-│       ├── server.go          # HTTP server setup
-│       └── handlers.go        # WebSocket + REST handlers
+│       ├── server.go              # HTTP server setup
+│       └── handlers.go            # WebSocket + REST handlers
+├── examples/
+│   └── agents-md/                 # 21 AGENTS.md templates
 ├── Dockerfile
 ├── docker-compose.yml
+├── .env.example
 └── config.example.yaml
 ```
 
