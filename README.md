@@ -200,9 +200,19 @@ gocode/
 └── config.example.yaml
 ```
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for the full development plan.
+
+**Next up:**
+- Confirmation prompt before dangerous commands
+- Session persistence (SQLite)
+- Plugin system
+- Web UI
+
 ## Contributing
 
-Contributions are welcome! Feel free to open issues and pull requests.
+Contributions are welcome! Check the [Roadmap](ROADMAP.md) for ideas and open a PR.
 
 ## License
 
