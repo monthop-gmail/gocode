@@ -210,6 +210,23 @@ See [ROADMAP.md](ROADMAP.md) for the full development plan.
 - Plugin system
 - Web UI
 
+## gocode vs adkcode
+
+Both are open-source AI coding agents with the same 8 tools and AGENTS.md support — but built differently:
+
+| | [gocode](https://github.com/monthop-gmail/gocode) | [adkcode](https://github.com/monthop-gmail/adkcode) |
+|---|--------|---------|
+| Language | Go | Python |
+| Framework | Custom HTTP + WebSocket server | Google ADK |
+| LLM | Any OpenAI-compatible (DeepSeek, Qwen, Groq, OpenAI, Ollama) | Gemini |
+| Interface | CLI REPL + one-shot | Web UI + CLI REPL + API server |
+| MCP support | - (planned) | Yes (stdio + SSE) |
+| Config | `.env` / `config.yaml` | `.env` |
+| Session | In-memory | ADK built-in |
+| Deployment | Docker Compose / binary | Docker Compose / `pip install` |
+| Lines of code | ~1,500 | ~300 |
+| Best for | ใช้กับ LLM provider ที่หลากหลาย | ใช้กับ Gemini + ต้องการ Web UI สำเร็จรูป |
+
 ## Contributing
 
 Contributions are welcome! Check the [Roadmap](ROADMAP.md) for ideas and open a PR.
