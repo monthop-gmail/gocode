@@ -1,0 +1,18 @@
+services:
+  gocode:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config.yaml:/workspace/config.yaml:ro
+      - ./workspace:/workspace/project
+    working_dir: /workspace/project
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - GOCODE_API_KEY=${GOCODE_API_KEY:-}
+      - GOCODE_BASE_URL=${GOCODE_BASE_URL:-}
+      - GOCODE_MODEL=${GOCODE_MODEL:-}
+    command: ["serve", "--host", "0.0.0.0", "--port", "3000", "--config", "/workspace/config.yaml"]
+    restart: unless-stopped
