@@ -44,6 +44,7 @@ func (s *Server) setupRoutes() {
 		r.Get("/sessions", s.handleListSessions)
 		r.Post("/sessions", s.handleCreateSession)
 		r.Delete("/sessions/{sessionID}", s.handleDeleteSession)
+		r.Post("/sessions/{sessionID}/message", s.handleSendMessage)
 	})
 }
 

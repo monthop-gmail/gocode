@@ -103,3 +103,56 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Delete(sessionID)
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// handleSendMessage runs the agent synchronously and returns the result as JSON.
+func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
+	sessionID := chi.URLParam(r, "sessionID")
+
+	session, ok := s.sessions.Get(sessionID)
+	if !ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "session not found"})
+		return
+	}
+
+	var body struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Content == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "missing 'content' in request body"})
+		return
+	}
+
+	events := make(chan agent.Event, 100)
+	go func() {
+		if err := s.agent.Run(r.Context(), session, body.Content, events); err != nil {
+			log.Printf("Agent error: %v", err)
+		}
+	}()
+
+	var resultText string
+	var isError bool
+	for event := range events {
+		switch event.Type {
+		case "text_delta":
+			resultText += event.Content
+		case "error":
+			resultText += event.Content
+			isError = true
+		}
+	}
+
+	if resultText == "" {
+		resultText = "Done. (no text output)"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"result":     resultText,
+		"session_id": sessionID,
+		"is_error":   isError,
+	})
+}
